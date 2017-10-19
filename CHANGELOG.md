@@ -1,5 +1,33 @@
 # Change Log
 
+## [v1.1.0](https://github.com/feathersjs/feathers-redux/tree/v1.1.0) (2017-09-11)
+[Full Changelog](https://github.com/feathersjs/feathers-redux/compare/v1.0.0...v1.1.0)
+
+**Implemented enhancements:**
+
+- Data key set to null whilst loading/saving [\#31](https://github.com/feathersjs/feathers-redux/issues/31)
+- Data key not set to null before promise resolves or rejects [\#32](https://github.com/feathersjs/feathers-redux/pull/32) ([Jackleberry](https://github.com/Jackleberry))
+
+**Merged pull requests:**
+
+- Add missing quote [\#33](https://github.com/feathersjs/feathers-redux/pull/33) ([bertho-zero](https://github.com/bertho-zero))
+
+## [v1.0.0](https://github.com/feathersjs/feathers-redux/tree/v1.0.0) (2017-08-23)
+[Full Changelog](https://github.com/feathersjs/feathers-redux/compare/v0.1.0...v1.0.0)
+
+## [v0.1.0](https://github.com/feathersjs/feathers-redux/tree/v0.1.0) (2017-08-23)
+[Full Changelog](https://github.com/feathersjs/feathers-redux/compare/v0.0.3...v0.1.0)
+
+**Implemented enhancements:**
+
+- How to achieve autobound action creators with a store? [\#21](https://github.com/feathersjs/feathers-redux/issues/21)
+- Export action types [\#29](https://github.com/feathersjs/feathers-redux/pull/29) ([amaurymartiny](https://github.com/amaurymartiny))
+- added bindWithDispatch method [\#25](https://github.com/feathersjs/feathers-redux/pull/25) ([zusamann](https://github.com/zusamann))
+
+**Closed issues:**
+
+- Action Type Namespace [\#20](https://github.com/feathersjs/feathers-redux/issues/20)
+
 ## [v0.0.3](https://github.com/feathersjs/feathers-redux/tree/v0.0.3) (2017-06-22)
 [Full Changelog](https://github.com/feathersjs/feathers-redux/compare/v0.0.2...v0.0.3)
 

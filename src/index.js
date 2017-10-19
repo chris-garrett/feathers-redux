@@ -1,5 +1,6 @@
 
 import { createAction, handleActions } from 'redux-actions';
+import { bindActionCreators } from 'redux';
 import makeDebug from 'debug';
 
 /**
@@ -101,7 +102,7 @@ const reduxifyService = (app, route, name = route, options = {}) => {
         [opts.isLoading]: ifLoading,
         [opts.isSaving]: !ifLoading,
         [opts.isFinished]: false,
-        [opts.data]: null,
+        [opts.data]: state[opts.data] || null,
         [opts.queryResult]: state[opts.queryResult] || null //  leave previous to reduce redraw
       });
     },
@@ -148,6 +149,13 @@ const reduxifyService = (app, route, name = route, options = {}) => {
   const RESET = `${SERVICE_NAME}RESET`;
   const STORE = `${SERVICE_NAME}STORE`;
 
+  const actionTypesForServiceMethod = (actionType) => ({
+    [`${actionType}`]: `${actionType}`,
+    [`${actionType}_${opts.PENDING}`]: `${actionType}_${opts.PENDING}`,
+    [`${actionType}_${opts.FULFILLED}`]: `${actionType}_${opts.FULFILLED}`,
+    [`${actionType}_${opts.REJECTED}`]: `${actionType}_${opts.REJECTED}`
+  });
+
   return {
     // ACTION CREATORS
     // Note: action.payload in reducer will have the value of .data below
@@ -160,6 +168,19 @@ const reduxifyService = (app, route, name = route, options = {}) => {
     reset: createAction(RESET),
     store: createAction(STORE, store => store),
     on: (event, data, fcn) => (dispatch, getState) => { fcn(event, data, dispatch, getState); },
+
+    // ACTION TYPES
+
+    types: {
+      ...actionTypesForServiceMethod(FIND),
+      ...actionTypesForServiceMethod(GET),
+      ...actionTypesForServiceMethod(CREATE),
+      ...actionTypesForServiceMethod(UPDATE),
+      ...actionTypesForServiceMethod(PATCH),
+      ...actionTypesForServiceMethod(REMOVE),
+      RESET,
+      STORE
+    },
 
     // REDUCER
 
@@ -309,4 +330,52 @@ export const getServicesStatus = (servicesState, serviceNames) => {
   });
 
   return status;
+};
+
+/**
+ * Method to bind a given dispatch function with the passed services.
+ *
+ * This helps with not having to pass down store.dispatch as a prop everywhere
+ * Read More: http://redux.js.org/docs/api/bindActionCreators.html
+ *
+ * @param {Object} services - using the default reduxifyService method
+ * @param {Function} dispatch - the relevant store.dispatch function which is to be bounded to actionCreators
+ * @param {Array=} targetActions - list of action names to be targeted for binding
+ * @returns {Object} boundServices - returns the new services object with the bounded action creators
+ */
+
+export const bindWithDispatch = (dispatch, services, targetActions) => {
+  targetActions = targetActions || [
+    // default targets from feathers-redux
+    'find',
+    'get',
+    'create',
+    'update',
+    'patch',
+    'remove',
+    'reset',
+    'store',
+    // couple more optional ones in case feathers-reduxify-authentication is being used
+    'authenticate',
+    'logout'
+  ];
+
+  const _serviceNames = Object.keys(services);
+  // map over the services object to get every service
+  _serviceNames.forEach(_name => {
+    const _methodNames = Object.keys(services[_name]);
+
+    // map over every method in the service
+    _methodNames.forEach(_method => {
+      // if method is in targeted actions then replace it with bounded method
+      if (targetActions.includes(_method)) {
+        services[_name][_method] = bindActionCreators(
+          services[_name][_method],
+          dispatch
+        );
+      }
+    });
+  });
+
+  return services;
 };

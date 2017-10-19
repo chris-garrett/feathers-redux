@@ -56,7 +56,7 @@ __Options:__
 - `app` (*required*) - The Feathers client app.
 - `serviceNames` (*required*, string, array of strings, or object) - The
 paths of the Feathers services to reduxify.
-    - `'messages'` is short for `{ messages: 'messages }`.
+    - `'messages'` is short for `{ messages: 'messages' }`.
     You can dispatch calls with `dispatch(services.messages.create(data, params));`.
     - `['users', 'messages']` is short for `{ users: 'users', messages: 'messages' }`.
     - `{ '/buildings/:buildingid': 'buildings' }` will reduxify the Feathers service
@@ -94,6 +94,16 @@ The default is
     get(id, params) {},
     store(object) {}, // Interface for realtime replication.
     reset() {}, // Reinitializes store for this service.
+    // action types
+    types: {
+      RESET: 'RESET',
+      STORE: 'STORE',
+      SERVICES_MESSAGES_FIND: 'SERVICES_MESSAGES_FIND',
+      SERVICES_MESSAGES_FIND_PENDING: 'SERVICES_MESSAGES_FIND_PENDING',
+      SERVICES_MESSAGES_FIND_FULFILLED: 'SERVICES_MESSAGES_FIND_FULFILLED',
+      SERVICES_MESSAGES_FIND_REJECTED: 'SERVICES_MESSAGES_FIND_REJECTED',
+      // same for all methods GET, CREATE...
+    },
     // reducer
     reducer() {}, // Reducers handling actions MESSAGES_CREATE_PENDING, _FULFILLED, and _REJECTED.
   },
@@ -116,6 +126,13 @@ combineReducers({
 
 > **ProTip:** You have to include `redux-promise-middleware` and `redux-thunk`
 in your middleware.
+
+You may listen to actions dispatched by `feathers-redux`, for example to manage your side-effects. With `redux-saga`, it would be done with:
+```javascript
+yield take(services.users.types.SERVICES_USERS_CREATE_FULFILLED, function*(action) {
+  // do something when user gets created
+});
+```
 
 ## Documentation: getServicesStatus
 
@@ -193,6 +210,34 @@ state = {
   },
   users: { ... },
 };
+```
+
+## Autobind Action Creators
+
+Method to bind a given dispatch function with the passed services. 
+This helps with not having to pass down `store.dispatch` as a prop everywhere the service is being used. Read More: http://redux.js.org/docs/api/bindActionCreators.html
+```js
+import reduxifyServices, { bindWithDispatch } from 'feathers-redux';
+
+// create a services object as described above 
+const rawServices = reduxifyServices(...);
+
+// create a store with rootReducer combining reducers from rawServices
+const store = createStore(...)
+
+// use the bindWithDispatch method to bind rawServices' action creators with store.dispatch
+const services = bindWithDispatch(store.dispatch, rawServices)
+```
+```js
+// before 
+store.dispatch(services.messages.get('557XxUL8PalGMgOo'));
+store.dispatch(services.messages.find());
+store.dispatch(services.messages.create({ text: 'Hello!' }));
+
+// after
+services.messages.get('557XxUL8PalGMgOo');
+services.messages.find();
+services.messages.create({ text: 'Hello!' });
 ```
 
 ## Examples
