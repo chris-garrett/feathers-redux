@@ -2,7 +2,7 @@
   "name": "feathers-redux",
   "description": "Integrate Feathers services with your Redux store",
   "version": "1.1.0",
-  "homepage": "https://github.com/feathersjs/feathers-redux",
+  "homepage": "https://github.com/chris-garrett/feathers-redux-immutablejs",
   "main": "lib/",
   "keywords": [
     "feathers",
@@ -11,7 +11,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git://github.com/feathersjs/feathers-redux.git"
+    "url": "git://github.com/chris-garrett/feathers-redux-immutablejs"
   },
   "author": {
     "name": "Feathers contributors",
@@ -20,7 +20,7 @@
   },
   "contributors": [],
   "bugs": {
-    "url": "https://github.com/feathersjs/feathers-redux/issues"
+    "url": "https://github.com/chris-garrett/feathers-redux-immutablejs"
   },
   "engines": {
     "node": ">= 4.6.0"
