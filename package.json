@@ -29,7 +29,8 @@
   "scripts": {
     "up": "npm i && mocha --watch --recursive test/immutablejs/ --compilers js:babel-core/register ",
     "prepublish": "npm run compile",
-    "publish": "git push origin --tags && npm run changelog && git push origin",
+    "publish": "",
+    "dopublish": "git push origin --tags && npm run changelog && git push origin",
     "release:patch": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",
     "release:major": "npm version major && npm publish",
