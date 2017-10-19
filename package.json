@@ -1,12 +1,13 @@
 {
-  "name": "feathers-redux",
-  "description": "Integrate Feathers services with your Redux store",
+  "name": "feathers-redux-immutablejs",
+  "description": "Integrate Feathers services with your Redux store (immutable.js side by side)",
   "version": "1.1.0",
   "homepage": "https://github.com/chris-garrett/feathers-redux-immutablejs",
   "main": "lib/",
   "keywords": [
     "feathers",
-    "feathers-plugin"
+    "feathers-plugin",
+    "immutable"
   ],
   "license": "MIT",
   "repository": {
