@@ -26,6 +26,7 @@
     "node": ">= 4.6.0"
   },
   "scripts": {
+    "up": "npm i && mocha --watch --recursive test/immutablejs/ --compilers js:babel-core/register ",
     "prepublish": "npm run compile",
     "publish": "git push origin --tags && npm run changelog && git push origin",
     "release:patch": "npm version patch && npm publish",
@@ -35,7 +36,7 @@
     "compile": "shx rm -rf lib/ && babel -d lib/ src/",
     "watch": "babel --watch -d lib/ src/",
     "lint": "semistandard src/**/*.js test/**/*.js --fix",
-    "mocha": "mocha --opts mocha.opts",
+    "mocha": "mocha --watch --opts mocha.opts",
     "coverage": "istanbul cover node_modules/mocha/bin/_mocha -- --opts mocha.opts",
     "test": "npm run compile && npm run lint && npm run coverage",
     "start": "npm run compile && node example/app"
@@ -52,7 +53,8 @@
   "dependencies": {
     "debug": "^2.6.8",
     "redux": "^3.7.2",
-    "redux-actions": "^2.0.3"
+    "redux-actions": "^2.0.3",
+    "redux-immutable": "^4.0.0"
   },
   "devDependencies": {
     "babel-cli": "^6.24.1",
@@ -61,12 +63,14 @@
     "babel-preset-es2015": "^6.24.1",
     "babel-preset-stage-0": "^6.24.1",
     "chai": "^3.5.0",
+    "chai-immutable": "^1.6.0",
     "feathers": "^2.1.3",
     "feathers-client": "^2.2.0",
     "feathers-errors": "^2.8.1",
     "feathers-memory": "^1.1.0",
     "feathers-offline-realtime": "^0.0.1",
     "feathers-tests-fake-app-users": "^1.0.0",
+    "immutable": "^3.8.1",
     "istanbul": "1.1.0-alpha.1",
     "mocha": "^3.4.2",
     "redux-promise-middleware": "^4.3.0",

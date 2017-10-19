@@ -1,0 +1,10 @@
+version: '2'
+services:
+
+  app:
+    image: chrisgarrett/node-dev:8.2.1
+    command: npm run up
+    environment:
+    - DEBUG=frdx
+    volumes:
+    - .:/work/app
