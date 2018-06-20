@@ -1,4 +1,3 @@
-
 /* eslint no-var: 0 */
 
 const assert = require('chai').assert;
@@ -34,8 +33,14 @@ describe('reduxify:reducer - array of paths', () => {
       isSaving: false,
       isFinished: false,
       data: null,
-      queryResult: null,
-      store: null
+      queryResult: {
+        total: 0,
+        limit: 0,
+        skip: 0,
+        data: []
+      },
+      store: null,
+      ...pendingDefaults
     });
   });
 
@@ -44,11 +49,17 @@ describe('reduxify:reducer - array of paths', () => {
       ['pending', 'fulfilled', 'rejected'].forEach(step => {
         it(`for ${step}`, () => {
           var validStates = getValidStates(false);
+          var stateWithPending;
+
           if (method === 'find') { validStates = getValidStates(true, true); }
           if (method === 'get') { validStates = getValidStates(true); }
 
           const state = services.users.reducer({}, reducerActionType(method, step));
-          assert.deepEqual(state, validStates[step]);
+
+          if (step === 'fulfilled' || step === 'rejected') { stateWithPending = { ...validStates[step], [`${method}Pending`]: false }; }
+          if (step === 'pending') { stateWithPending = { ...validStates[step], ...getPendingDefaults(method), [`${method}Pending`]: true }; }
+
+          assert.deepEqual(state, stateWithPending);
         });
       });
     });
@@ -59,13 +70,19 @@ describe('reduxify:reducer - array of paths', () => {
       ['pending', 'fulfilled', 'rejected'].forEach(step => {
         it(`for ${step}`, () => {
           var validStates = getValidStates(false, false, true);
+          var stateWithPending;
+
           if (method === 'find') { validStates = getValidStates(true, true, true); }
           if (method === 'get') { validStates = getValidStates(true, false, true); }
 
           const state = services.users.reducer(
             { queryResult: [{ a: 'a' }] }, reducerActionType(method, step)
           );
-          assert.deepEqual(state, validStates[step]);
+
+          if (step === 'fulfilled' || step === 'rejected') { stateWithPending = { ...validStates[step], [`${method}Pending`]: false }; }
+          if (step === 'pending') { stateWithPending = { ...validStates[step], ...getPendingDefaults(method), [`${method}Pending`]: true }; }
+
+          assert.deepEqual(state, stateWithPending);
         });
       });
     });
@@ -82,7 +99,11 @@ describe('reduxify:reducer - array of paths', () => {
           const state = services.users.reducer(
             { data: { a: 'a' }, queryResult: null }, reducerActionType(method, step)
           );
-          assert.deepEqual(state, validStates[step]);
+
+          const withPendingDefaults = { ...validStates[step], ...getPendingDefaults(method) };
+          const stateWithPendingState = { ...state, [`${method}Pending`]: false };
+
+          assert.deepEqual(stateWithPendingState, withPendingDefaults);
         });
       });
     });
@@ -98,7 +119,12 @@ describe('reduxify:reducer - array of paths', () => {
         isSaving: false,
         isFinished: false,
         data: null,
-        queryResult: null,
+        queryResult: {
+          total: 0,
+          limit: 0,
+          skip: 0,
+          data: []
+        },
         store: null
       });
     });
@@ -123,7 +149,12 @@ describe('reduxify:reducer - array of paths', () => {
         isSaving: false,
         isFinished: false,
         data: null,
-        queryResult: null,
+        queryResult: {
+          total: 0,
+          limit: 0,
+          skip: 0,
+          data: []
+        },
         store: null
       });
     });
@@ -182,8 +213,14 @@ describe('reduxify:reducer - single path', () => {
       isSaving: false,
       isFinished: false,
       data: null,
-      queryResult: null,
-      store: null
+      queryResult: {
+        total: 0,
+        limit: 0,
+        skip: 0,
+        data: []
+      },
+      store: null,
+      ...pendingDefaults
     });
   });
 });
@@ -215,8 +252,14 @@ describe('reduxify:reducer - path & convenience name', () => {
       isSaving: false,
       isFinished: false,
       data: null,
-      queryResult: null,
-      store: null
+      queryResult: {
+        total: 0,
+        limit: 0,
+        skip: 0,
+        data: []
+      },
+      store: null,
+      ...pendingDefaults
     });
   });
 });
@@ -266,3 +309,24 @@ function getValidStates (ifLoading, isFind, haveQueryResult, haveDataResult) {
     }
   };
 }
+
+function getPendingDefaults (actionType) {
+  let result = {};
+  for (let key in pendingDefaults) {
+    if (`${actionType}Pending` === pendingDefaults[key]) {
+      result[key] = true;
+    } else {
+      result[key] = false;
+    }
+  }
+  return result;
+}
+
+const pendingDefaults = {
+  createPending: false,
+  findPending: false,
+  getPending: false,
+  updatePending: false,
+  patchPending: false,
+  removePending: false
+};

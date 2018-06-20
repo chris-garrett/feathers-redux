@@ -1,4 +1,3 @@
-
 import { createAction, handleActions } from 'redux-actions';
 import { bindActionCreators } from 'redux';
 import makeDebug from 'debug';
@@ -72,6 +71,7 @@ const reduxifyService = (app, route, name = route, options = {}) => {
   debug(`route ${route}`);
 
   const defaults = {
+    idField: 'id',
     isError: 'isError',
     isLoading: 'isLoading',
     isSaving: 'isSaving',
@@ -83,7 +83,37 @@ const reduxifyService = (app, route, name = route, options = {}) => {
     FULFILLED: 'FULFILLED',
     REJECTED: 'REJECTED'
   };
-  const opts = Object.assign({}, defaults, options);
+  const pendingDefaults = {
+    // individual pending/loading depending on the dispatched action
+    createPending: 'createPending',
+    findPending: 'findPending',
+    getPending: 'getPending',
+    updatePending: 'updatePending',
+    patchPending: 'patchPending',
+    removePending: 'removePending'
+  };
+
+  const queryResultDefaults = {
+    total: 0,
+    limit: 0,
+    skip: 0,
+    data: []
+  };
+
+  const opts = Object.assign({}, defaults, pendingDefaults, options);
+
+  const getPendingDefaults = (slicedActionType) => {
+    let result = {};
+    for (let key in pendingDefaults) {
+      if (`${slicedActionType}Pending` === pendingDefaults[key]) {
+        result[key] = true;
+      } else {
+        result[key] = false;
+      }
+    }
+    return result;
+  };
+
   const SERVICE_NAME = `SERVICES_${name.toUpperCase()}_`;
 
   const service = app.service(route);
@@ -92,51 +122,60 @@ const reduxifyService = (app, route, name = route, options = {}) => {
     throw Error(`Feathers service '${route} does not exist.`);
   }
 
-  const reducerForServiceMethod = (actionType, ifLoading, isFind) => ({
-    // promise has been started
-    [`${actionType}_${opts.PENDING}`]: (state, action) => {
-      debug(`redux:${actionType}_${opts.PENDING}`, action);
-      return ({
-        ...state,
-        [opts.isError]: null,
-        [opts.isLoading]: ifLoading,
-        [opts.isSaving]: !ifLoading,
-        [opts.isFinished]: false,
-        [opts.data]: state[opts.data] || null,
-        [opts.queryResult]: state[opts.queryResult] || null //  leave previous to reduce redraw
-      });
-    },
+  const reducerForServiceMethod = (actionType, ifLoading, isFind) => {
+    const slicedActionType = actionType.slice(SERVICE_NAME.length, actionType.length).toLowerCase(); // returns find/create/update/patch (etc.)
+    const pendingResults = getPendingDefaults(slicedActionType);
 
-    // promise resolved
-    [`${actionType}_${opts.FULFILLED}`]: (state, action) => {
-      debug(`redux:${actionType}_${opts.FULFILLED}`, action);
-      return {
-        ...state,
-        [opts.isError]: null,
-        [opts.isLoading]: false,
-        [opts.isSaving]: false,
-        [opts.isFinished]: true,
-        [opts.data]: !isFind ? action.payload : null,
-        [opts.queryResult]: isFind ? action.payload : (state[opts.queryResult] || null)
-      };
-    },
+    return {
+      // promise has been started
+      [`${actionType}_${opts.PENDING}`]: (state, action) => {
+        debug(`redux:${actionType}_${opts.PENDING}`, action);
+        return ({
+          ...state,
+          ...pendingResults,
 
-    // promise rejected
-    [`${actionType}_${opts.REJECTED}`]: (state, action) => {
-      debug(`redux:${actionType}_${opts.REJECTED}`, action);
-      return {
-        ...state,
-        // action.payload = { name: "NotFound", message: "No record found for id 'G6HJ45'",
-        //   code:404, className: "not-found" }
-        [opts.isError]: action.payload,
-        [opts.isLoading]: false,
-        [opts.isSaving]: false,
-        [opts.isFinished]: true,
-        [opts.data]: null,
-        [opts.queryResult]: isFind ? null : (state[opts.queryResult] || null)
-      };
-    }
-  });
+          [opts.isError]: null,
+          [opts.isLoading]: ifLoading,
+          [opts.isSaving]: !ifLoading,
+          [opts.isFinished]: false,
+          [opts.data]: state[opts.data] || null,
+          [opts.queryResult]: state[opts.queryResult] || null //  leave previous to reduce redraw
+        });
+      },
+
+      // promise resolved
+      [`${actionType}_${opts.FULFILLED}`]: (state, action) => {
+        debug(`redux:${actionType}_${opts.FULFILLED}`, action);
+        return {
+          ...state,
+          [opts.isError]: null,
+          [opts.isLoading]: false,
+          [opts.isSaving]: false,
+          [opts.isFinished]: true,
+          [opts.data]: !isFind ? action.payload : null,
+          [opts.queryResult]: isFind ? action.payload : (state[opts.queryResult] || null),
+          [opts[`${slicedActionType}Pending`]]: false
+        };
+      },
+
+      // promise rejected
+      [`${actionType}_${opts.REJECTED}`]: (state, action) => {
+        debug(`redux:${actionType}_${opts.REJECTED}`, action);
+        return {
+          ...state,
+          // action.payload = { name: "NotFound", message: "No record found for id 'G6HJ45'",
+          //   code:404, className: "not-found" }
+          [opts.isError]: action.payload,
+          [opts.isLoading]: false,
+          [opts.isSaving]: false,
+          [opts.isFinished]: true,
+          [opts.data]: null,
+          [opts.queryResult]: isFind ? null : (state[opts.queryResult] || null),
+          [opts[`${slicedActionType}Pending`]]: false
+        };
+      }
+    };
+  };
 
   // ACTION TYPES
 
@@ -148,6 +187,12 @@ const reduxifyService = (app, route, name = route, options = {}) => {
   const REMOVE = `${SERVICE_NAME}REMOVE`;
   const RESET = `${SERVICE_NAME}RESET`;
   const STORE = `${SERVICE_NAME}STORE`;
+
+  // FEATHERS EVENT LISTENER ACTION TYPES
+  const ON_CREATED = `${SERVICE_NAME}ON_CREATED`;
+  const ON_UPDATED = `${SERVICE_NAME}ON_UPDATED`;
+  const ON_PATCHED = `${SERVICE_NAME}ON_PATCHED`;
+  const ON_REMOVED = `${SERVICE_NAME}ON_REMOVED`;
 
   const actionTypesForServiceMethod = (actionType) => ({
     [`${actionType}`]: `${actionType}`,
@@ -169,8 +214,12 @@ const reduxifyService = (app, route, name = route, options = {}) => {
     store: createAction(STORE, store => store),
     on: (event, data, fcn) => (dispatch, getState) => { fcn(event, data, dispatch, getState); },
 
-    // ACTION TYPES
+    onCreated: createAction(ON_CREATED, (payload) => ({ data: payload })),
+    onUpdated: createAction(ON_UPDATED, (payload) => ({ data: payload })),
+    onPatched: createAction(ON_PATCHED, (payload) => ({ data: payload })),
+    onRemoved: createAction(ON_REMOVED, (payload) => ({ data: payload })),
 
+    // ACTION TYPES
     types: {
       ...actionTypesForServiceMethod(FIND),
       ...actionTypesForServiceMethod(GET),
@@ -179,11 +228,15 @@ const reduxifyService = (app, route, name = route, options = {}) => {
       ...actionTypesForServiceMethod(PATCH),
       ...actionTypesForServiceMethod(REMOVE),
       RESET,
-      STORE
+      STORE,
+
+      ...actionTypesForServiceMethod(ON_CREATED),
+      ...actionTypesForServiceMethod(ON_UPDATED),
+      ...actionTypesForServiceMethod(ON_PATCHED),
+      ...actionTypesForServiceMethod(ON_REMOVED)
     },
 
     // REDUCER
-
     reducer: handleActions(
       Object.assign({},
         reducerForServiceMethod(FIND, true, true),
@@ -192,6 +245,69 @@ const reduxifyService = (app, route, name = route, options = {}) => {
         reducerForServiceMethod(UPDATE, false),
         reducerForServiceMethod(PATCH, false),
         reducerForServiceMethod(REMOVE, false),
+
+        { [ON_CREATED]: (state, action) => {
+          debug(`redux:${ON_CREATED}`, action);
+
+          const updatedResult = Object.assign({}, state[opts.queryResult], {
+            data: state[opts.queryResult].data.concat(action.payload.data),
+            total: state[opts.queryResult].total + 1
+          });
+
+          return {
+            ...state,
+            [opts.queryResult]: updatedResult
+          };
+        } },
+
+        { [ON_UPDATED]: (state, action) => {
+          debug(`redux:${ON_UPDATED}`, action);
+
+          return {
+            ...state,
+            [opts.queryResult]: Object.assign({}, state[opts.queryResult], {
+              data: state[opts.queryResult].data.map(item => {
+                if (item[opts.idField] === action.payload.data[opts.idField]) {
+                  return action.payload.data;
+                }
+                return item;
+              })
+            })
+          };
+        } },
+
+        { [ON_PATCHED]: (state, action) => {
+          debug(`redux:${ON_PATCHED}`, action);
+
+          return {
+            ...state,
+            [opts.queryResult]: Object.assign({}, state[opts.queryResult], {
+              data: state[opts.queryResult].data.map(item => {
+                if (item[opts.idField] === action.payload.data[opts.idField]) {
+                  return action.payload.data;
+                }
+                return item;
+              })
+            })
+          };
+        } },
+
+        { [ON_REMOVED]: (state, action) => {
+          debug(`redux:${ON_REMOVED}`, action);
+          const removeIndex = state.queryResult.data.findIndex(item => item[opts.idField] === action.payload.data[opts.idField]);
+          const updatedResult = Object.assign({}, state[opts.queryResult], {
+            data: [
+              ...state[opts.queryResult].data.slice(0, removeIndex),
+              ...state[opts.queryResult].data.slice(removeIndex + 1)
+            ],
+            total: state[opts.queryResult].total - 1
+          });
+
+          return {
+            ...state,
+            [opts.queryResult]: updatedResult
+          };
+        } },
 
         // reset status if no promise is pending
         { [RESET]: (state, action) => {
@@ -208,7 +324,7 @@ const reduxifyService = (app, route, name = route, options = {}) => {
             [opts.isSaving]: false,
             [opts.isFinished]: false,
             [opts.data]: null,
-            [opts.queryResult]: action.payload ? state[opts.queryResult] : null,
+            [opts.queryResult]: action.payload ? state[opts.queryResult] : queryResultDefaults,
             [opts.store]: null
           };
         } },
@@ -229,8 +345,15 @@ const reduxifyService = (app, route, name = route, options = {}) => {
         [opts.isSaving]: false,
         [opts.isFinished]: false,
         [opts.data]: null,
-        [opts.queryResult]: null,
-        [opts.store]: null
+        [opts.queryResult]: queryResultDefaults,
+        [opts.store]: null,
+
+        [opts.createPending]: false,
+        [opts.findPending]: false,
+        [opts.getPending]: false,
+        [opts.updatePending]: false,
+        [opts.patchPending]: false,
+        [opts.removePending]: false
       }
     )
   };

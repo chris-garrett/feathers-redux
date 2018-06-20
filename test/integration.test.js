@@ -13,8 +13,21 @@ const initServiceState = {
   isSaving: false,
   isFinished: false,
   data: null,
-  queryResult: null,
-  store: null
+  queryResult: {
+    total: 0,
+    limit: 0,
+    skip: 0,
+    data: []
+  },
+  store: null,
+
+  createPending: false,
+  findPending: false,
+  getPending: false,
+  updatePending: false,
+  patchPending: false,
+  removePending: false
+
 };
 
 const initialStatus = { message: '', className: '', serviceName: '' };
@@ -78,7 +91,7 @@ describe('integration test', () => {
 
       state = store.getState();
       assert.deepEqual(state.messages, {
-        ...initServiceState, isSaving: true
+        ...initServiceState, isSaving: true, createPending: true
       });
 
       assert.deepEqual(getServicesStatus(state, ['users', 'messages']), savingStatus);
@@ -86,7 +99,7 @@ describe('integration test', () => {
       return promise.then(() => {
         state = store.getState();
         assert.deepEqual(state.messages, {
-          ...initServiceState, isFinished: true, data: { id: 1, text: 'hello' }
+          ...initServiceState, isFinished: true, data: { id: 1, text: 'hello' }, createPending: false
         });
 
         assert.deepEqual(getServicesStatus(state, ['users', 'messages']), initialStatus);
@@ -98,7 +111,7 @@ describe('integration test', () => {
 
       state = store.getState();
       assert.deepEqual(state.messages, {
-        ...initServiceState, isLoading: true
+        ...initServiceState, isLoading: true, getPending: true
       });
 
       return promise
@@ -124,7 +137,7 @@ describe('integration test', () => {
 
       state = store.getState();
       assert.deepEqual(state.messages, {
-        ...initServiceState, isLoading: true
+        ...initServiceState, isLoading: true, findPending: true
       });
 
       return promise
@@ -134,7 +147,8 @@ describe('integration test', () => {
             { ...state.messages },
             { ...initServiceState,
               isFinished: true,
-              queryResult: [{ id: 0, order: 0 }, { id: 1, order: 1 }]
+              queryResult: [{ id: 0, order: 0 }, { id: 1, order: 1 }],
+              findPending: false
             }
           );
 
