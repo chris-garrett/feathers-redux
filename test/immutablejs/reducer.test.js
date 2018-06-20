@@ -4,10 +4,11 @@
 const chai = require('chai');
 const chaiImmutable = require('chai-immutable');
 chai.use(chaiImmutable);
+const fromJS = require('../../src/immutablejs').fromJS;
+
 const assert = chai.assert;
 const feathersFakes = require('feathers-tests-fake-app-users');
 const reduxifyServices = require('../../src/immutablejs').default;
-const fromJS = require('../../src/immutablejs').fromJS;
 
 const usersDb = [];
 
@@ -38,8 +39,14 @@ describe('reduxify:reducer - array of paths (immutable.js)', () => {
       isSaving: false,
       isFinished: false,
       data: null,
-      queryResult: null,
-      store: null
+      queryResult: {
+        total: 0,
+        limit: 0,
+        skip: 0,
+        data: []
+      },
+      store: null,
+      ...pendingDefaults
     }));
   });
 
@@ -48,11 +55,17 @@ describe('reduxify:reducer - array of paths (immutable.js)', () => {
       ['pending', 'fulfilled', 'rejected'].forEach(step => {
         it(`for ${step}`, () => {
           var validStates = getValidStates(false);
+          var stateWithPending;
+
           if (method === 'find') { validStates = getValidStates(true, true); }
           if (method === 'get') { validStates = getValidStates(true); }
 
           const state = services.users.reducer(fromJS({}), reducerActionType(method, step));
-          assert.deepEqual(state, validStates.get(step));
+
+          if (step === 'fulfilled' || step === 'rejected') { stateWithPending = { ...validStates[step], [`${method}Pending`]: false }; }
+          if (step === 'pending') { stateWithPending = { ...validStates[step], ...getPendingDefaults(method), [`${method}Pending`]: true }; }
+
+          assert.deepEqual(state, fromJS(stateWithPending));
         });
       });
     });
@@ -63,13 +76,19 @@ describe('reduxify:reducer - array of paths (immutable.js)', () => {
       ['pending', 'fulfilled', 'rejected'].forEach(step => {
         it(`for ${step}`, () => {
           var validStates = getValidStates(false, false, true);
+          var stateWithPending;
+
           if (method === 'find') { validStates = getValidStates(true, true, true); }
           if (method === 'get') { validStates = getValidStates(true, false, true); }
 
           const state = services.users.reducer(
             fromJS({ queryResult: [{ a: 'a' }] }), reducerActionType(method, step)
           );
-          assert.deepEqual(state, validStates.get(step));
+
+          if (step === 'fulfilled' || step === 'rejected') { stateWithPending = { ...validStates[step], [`${method}Pending`]: false }; }
+          if (step === 'pending') { stateWithPending = { ...validStates[step], ...getPendingDefaults(method), [`${method}Pending`]: true }; }
+
+          assert.deepEqual(state, fromJS(stateWithPending));
         });
       });
     });
@@ -86,7 +105,11 @@ describe('reduxify:reducer - array of paths (immutable.js)', () => {
           const state = services.users.reducer(
             fromJS({ data: { a: 'a' }, queryResult: null }), reducerActionType(method, step)
           );
-          assert.deepEqual(state, validStates.get(step));
+
+          const withPendingDefaults = { ...validStates[step], ...getPendingDefaults(method) };
+          const stateWithPendingState = state.set(`${method}Pending`, false);
+
+          assert.deepEqual(stateWithPendingState, fromJS(withPendingDefaults));
         });
       });
     });
@@ -102,7 +125,12 @@ describe('reduxify:reducer - array of paths (immutable.js)', () => {
         isSaving: false,
         isFinished: false,
         data: null,
-        queryResult: null,
+        queryResult: {
+          total: 0,
+          limit: 0,
+          skip: 0,
+          data: []
+        },
         store: null
       }));
     });
@@ -127,7 +155,12 @@ describe('reduxify:reducer - array of paths (immutable.js)', () => {
         isSaving: false,
         isFinished: false,
         data: null,
-        queryResult: null,
+        queryResult: {
+          total: 0,
+          limit: 0,
+          skip: 0,
+          data: []
+        },
         store: null
       }));
     });
@@ -186,9 +219,16 @@ describe('reduxify:reducer - single path (immutable.js)', () => {
       isSaving: false,
       isFinished: false,
       data: null,
-      queryResult: null,
-      store: null
-    }));
+      queryResult: {
+        total: 0,
+        limit: 0,
+        skip: 0,
+        data: []
+      },
+      store: null,
+      ...pendingDefaults
+    })
+  );
   });
 });
 
@@ -213,15 +253,23 @@ describe('reduxify:reducer - path & convenience name (immutable.js)', () => {
   it('returns an initial state', () => {
     const state = services.users.reducer(undefined, '@@INIT'); // action type Redux uses during init
     assert.isObject(state);
+
     assert.deepEqual(state, fromJS({
       isError: null,
       isLoading: false,
       isSaving: false,
       isFinished: false,
       data: null,
-      queryResult: null,
-      store: null
-    }));
+      queryResult: {
+        total: 0,
+        limit: 0,
+        skip: 0,
+        data: []
+      },
+      store: null,
+      ...pendingDefaults
+    })
+  );
   });
 });
 
@@ -238,16 +286,17 @@ function reducerActionType (method, step) {
   };
 }
 
-function getValidStates (ifLoading, isFind, haveQueryResult) {
+function getValidStates (ifLoading, isFind, haveQueryResult, haveDataResult) {
   const qr = haveQueryResult ? [{ a: 'a' }] : null;
+  const dr = haveDataResult ? { a: 'a' } : null;
 
-  return fromJS({
+  return {
     pending: {
       isError: null,
       isLoading: ifLoading,
       isSaving: !ifLoading,
       isFinished: false,
-      data: null,
+      data: dr,
       queryResult: qr
 
     },
@@ -267,5 +316,26 @@ function getValidStates (ifLoading, isFind, haveQueryResult) {
       data: null,
       queryResult: qr
     }
-  });
+  };
 }
+
+function getPendingDefaults (actionType) {
+  let result = {};
+  for (let key in pendingDefaults) {
+    if (`${actionType}Pending` === pendingDefaults[key]) {
+      result[key] = true;
+    } else {
+      result[key] = false;
+    }
+  }
+  return result;
+}
+
+const pendingDefaults = {
+  createPending: false,
+  findPending: false,
+  getPending: false,
+  updatePending: false,
+  patchPending: false,
+  removePending: false
+};

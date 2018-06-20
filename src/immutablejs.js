@@ -73,6 +73,7 @@ const reduxifyService = (app, route, name = route, options = {}) => {
   debug(`route ${route}`);
 
   const defaults = {
+    idField: 'id',
     isError: 'isError',
     isLoading: 'isLoading',
     isSaving: 'isSaving',
@@ -84,7 +85,37 @@ const reduxifyService = (app, route, name = route, options = {}) => {
     FULFILLED: 'FULFILLED',
     REJECTED: 'REJECTED'
   };
-  const opts = Object.assign({}, defaults, options);
+  const pendingDefaults = {
+    // individual pending/loading depending on the dispatched action
+    createPending: 'createPending',
+    findPending: 'findPending',
+    getPending: 'getPending',
+    updatePending: 'updatePending',
+    patchPending: 'patchPending',
+    removePending: 'removePending'
+  };
+
+  const queryResultDefaults = {
+    total: 0,
+    limit: 0,
+    skip: 0,
+    data: []
+  };
+
+  const opts = Object.assign({}, defaults, pendingDefaults, options);
+
+  const getPendingDefaults = (slicedActionType) => {
+    let result = {};
+    for (let key in pendingDefaults) {
+      if (`${slicedActionType}Pending` === pendingDefaults[key]) {
+        result[key] = true;
+      } else {
+        result[key] = false;
+      }
+    }
+    return result;
+  };
+
   const SERVICE_NAME = `SERVICES_${name.toUpperCase()}_`;
 
   const service = app.service(route);
@@ -93,45 +124,54 @@ const reduxifyService = (app, route, name = route, options = {}) => {
     throw Error(`Feathers service '${route} does not exist.`);
   }
 
-  const reducerForServiceMethod = (actionType, ifLoading, isFind) => ({
-    // promise has been started
-    [`${actionType}_${opts.PENDING}`]: (state, action) => {
-      debug(`redux:${actionType}_${opts.PENDING}`, action);
-      return state
-        .set(`${[opts.isError]}`, null)
-        .set(`${[opts.isLoading]}`, ifLoading)
-        .set(`${[opts.isSaving]}`, !ifLoading)
-        .set(`${[opts.isFinished]}`, false)
-        .set(`${[opts.data]}`, null)
-        .set(`${[opts.queryResult]}`, state.get(opts.queryResult) || null); //  leave previous to reduce redraw
-    },
+  const reducerForServiceMethod = (actionType, ifLoading, isFind) => {
+    const slicedActionType = actionType.slice(SERVICE_NAME.length, actionType.length).toLowerCase(); // returns find/create/update/patch (etc.)
+    const pendingResults = getPendingDefaults(slicedActionType);
 
-    // promise resolved
-    [`${actionType}_${opts.FULFILLED}`]: (state, action) => {
-      debug(`redux:${actionType}_${opts.FULFILLED}`, action);
-      return state
-        .set(`${[opts.isError]}`, null)
-        .set(`${[opts.isLoading]}`, false)
-        .set(`${[opts.isSaving]}`, false)
-        .set(`${[opts.isFinished]}`, true)
-        .set(`${[opts.data]}`, !isFind ? makeImmutable(action.payload) : null)
-        .set(`${[opts.queryResult]}`, isFind ? makeImmutable(action.payload) : (state.get(opts.queryResult) || null));
-    },
+    return {
+      // promise has been started
+      [`${actionType}_${opts.PENDING}`]: (state, action) => {
+        debug(`redux:${actionType}_${opts.PENDING}`, action);
+        return state
+          .merge(makeImmutable(pendingResults))
+          .set(opts.isError, null)
+          .set(opts.isError, null)
+          .set(opts.isLoading, ifLoading)
+          .set(opts.isSaving, !ifLoading)
+          .set(opts.isFinished, false)
+          .set(opts.data, state.get(opts.data) || null)
+          .set(opts.queryResult, state.get(opts.queryResult) || null); //  leave previous to reduce redraw
+      },
 
-    // promise rejected
-    [`${actionType}_${opts.REJECTED}`]: (state, action) => {
-      debug(`redux:${actionType}_${opts.REJECTED}`, action);
-      return state
+      // promise resolved
+      [`${actionType}_${opts.FULFILLED}`]: (state, action) => {
+        debug(`redux:${actionType}_${opts.FULFILLED}`, action);
+        return state
+          .set(opts.isError, null)
+          .set(opts.isLoading, false)
+          .set(opts.isSaving, false)
+          .set(opts.isFinished, true)
+          .set(opts.data, !isFind ? makeImmutable(action.payload) : null)
+          .set(opts.queryResult, isFind ? makeImmutable(action.payload) : (state.get(opts.queryResult) || null))
+          .set(opts[slicedActionType + 'Pending'], false);
+      },
+
+      // promise rejected
+      [`${actionType}_${opts.REJECTED}`]: (state, action) => {
+        debug(`redux:${actionType}_${opts.REJECTED}`, action);
+        return state
         // action.payload = { name: "NotFound", message: "No record found for id 'G6HJ45'",
         //   code:404, className: "not-found" }
-        .set(`${[opts.isError]}`, makeImmutable(action.payload))
-        .set(`${[opts.isLoading]}`, false)
-        .set(`${[opts.isSaving]}`, false)
-        .set(`${[opts.isFinished]}`, true)
-        .set(`${[opts.data]}`, null)
-        .set(`${[opts.queryResult]}`, isFind ? null : (state.get(opts.queryResult) || null));
-    }
-  });
+          .set(opts.isError, makeImmutable(action.payload))
+          .set(opts.isLoading, false)
+          .set(opts.isSaving, false)
+          .set(opts.isFinished, true)
+          .set(opts.data, null)
+          .set(opts.queryResult, isFind ? null : (state.get(opts.queryResult) || null))
+          .set(opts[slicedActionType + 'Pending'], false);
+      }
+    };
+  };
 
   // ACTION TYPES
 
@@ -143,6 +183,12 @@ const reduxifyService = (app, route, name = route, options = {}) => {
   const REMOVE = `${SERVICE_NAME}REMOVE`;
   const RESET = `${SERVICE_NAME}RESET`;
   const STORE = `${SERVICE_NAME}STORE`;
+
+  // FEATHERS EVENT LISTENER ACTION TYPES
+  const ON_CREATED = `${SERVICE_NAME}ON_CREATED`;
+  const ON_UPDATED = `${SERVICE_NAME}ON_UPDATED`;
+  const ON_PATCHED = `${SERVICE_NAME}ON_PATCHED`;
+  const ON_REMOVED = `${SERVICE_NAME}ON_REMOVED`;
 
   const actionTypesForServiceMethod = (actionType) => ({
     [`${actionType}`]: `${actionType}`,
@@ -156,16 +202,20 @@ const reduxifyService = (app, route, name = route, options = {}) => {
     // Note: action.payload in reducer will have the value of .data below
     find: createAction(FIND, (p) => ({ promise: service.find(p), data: undefined })),
     get: createAction(GET, (id, p) => ({ promise: service.get(id, p) })),
-    create: createAction(CREATE, (d, p) => ({ promise: service.create(unmakeImmutable(d), p) })),
-    update: createAction(UPDATE, (id, d, p) => ({ promise: service.update(id, unmakeImmutable(d), p) })),
-    patch: createAction(PATCH, (id, d, p) => ({ promise: service.patch(id, unmakeImmutable(d), p) })),
+    create: createAction(CREATE, (d, p) => ({ promise: service.create(makeMutable(d), p) })),
+    update: createAction(UPDATE, (id, d, p) => ({ promise: service.update(id, makeMutable(d), p) })),
+    patch: createAction(PATCH, (id, d, p) => ({ promise: service.patch(id, makeMutable(d), p) })),
     remove: createAction(REMOVE, (id, p) => ({ promise: service.remove(id, p) })),
     reset: createAction(RESET),
     store: createAction(STORE, store => store),
     on: (event, data, fcn) => (dispatch, getState) => { fcn(event, data, dispatch, getState); },
 
-    // ACTION TYPES
+    onCreated: createAction(ON_CREATED, (payload) => ({ data: payload })),
+    onUpdated: createAction(ON_UPDATED, (payload) => ({ data: payload })),
+    onPatched: createAction(ON_PATCHED, (payload) => ({ data: payload })),
+    onRemoved: createAction(ON_REMOVED, (payload) => ({ data: payload })),
 
+    // ACTION TYPES
     types: {
       ...actionTypesForServiceMethod(FIND),
       ...actionTypesForServiceMethod(GET),
@@ -174,11 +224,15 @@ const reduxifyService = (app, route, name = route, options = {}) => {
       ...actionTypesForServiceMethod(PATCH),
       ...actionTypesForServiceMethod(REMOVE),
       RESET,
-      STORE
+      STORE,
+
+      ...actionTypesForServiceMethod(ON_CREATED),
+      ...actionTypesForServiceMethod(ON_UPDATED),
+      ...actionTypesForServiceMethod(ON_PATCHED),
+      ...actionTypesForServiceMethod(ON_REMOVED)
     },
 
     // REDUCER
-
     reducer: handleActions(
       Object.assign({},
         reducerForServiceMethod(FIND, true, true),
@@ -187,6 +241,47 @@ const reduxifyService = (app, route, name = route, options = {}) => {
         reducerForServiceMethod(UPDATE, false),
         reducerForServiceMethod(PATCH, false),
         reducerForServiceMethod(REMOVE, false),
+
+        { [ON_CREATED]: (state, action) => {
+          debug(`redux:${ON_CREATED}`, action);
+
+          return state
+            .setIn([opts.queryResult, 'data'], state.getIn([opts.queryResult, 'data']).concat(makeImmutable(action.payload.data)))
+            .setIn([opts.queryResult, 'total'], state.getIn([opts.queryResult, 'total']) + 1);
+        } },
+
+        { [ON_UPDATED]: (state, action) => {
+          debug(`redux:${ON_UPDATED}`, action);
+
+          const idx = state.getIn([opts.queryResult, 'data']).findIndex(item => {
+            return item.get(opts.idField) === action.payload.data[opts.idField];
+          });
+          console.log('ON_UPDATED: %o', idx);
+          return state
+            .setIn([opts.queryResult, 'data', idx], makeImmutable(action.payload.data));
+        } },
+
+        { [ON_PATCHED]: (state, action) => {
+          debug(`redux:${ON_PATCHED}`, action);
+
+          const idx = state.getIn([opts.queryResult, 'data']).findIndex(item => {
+            return item.get(opts.idField) === action.payload.data[opts.idField];
+          });
+          console.log('ON_PATCHED: %o', idx);
+          return state
+            .setIn([opts.queryResult, 'data', idx], makeImmutable(action.payload.data));
+        } },
+
+        { [ON_REMOVED]: (state, action) => {
+          debug(`redux:${ON_REMOVED}`, action);
+
+          const idx = state.getIn([opts.queryResult, 'data']).findIndex(item => {
+            return item.get(opts.idField) === action.payload.data[opts.idField];
+          });
+          return state
+            .deleteIn([opts.queryResult, 'data'], idx)
+            .setIn([opts.queryResult, 'total'], state.getIn([opts.queryResult, 'total']) - 1);
+        } },
 
         // reset status if no promise is pending
         { [RESET]: (state, action) => {
@@ -197,20 +292,21 @@ const reduxifyService = (app, route, name = route, options = {}) => {
           }
 
           return state
-            .set(`${[opts.isError]}`, null)
-            .set(`${[opts.isLoading]}`, false)
-            .set(`${[opts.isSaving]}`, false)
-            .set(`${[opts.isFinished]}`, false)
-            .set(`${[opts.data]}`, null)
-            .set(`${[opts.queryResult]}`, makeImmutable(action.payload) ? state.get(opts.queryResult) : null)
-            .set(`${[opts.store]}`, null);
+            .set(opts.isError, null)
+            .set(opts.isLoading, false)
+            .set(opts.isSaving, false)
+            .set(opts.isFinished, false)
+            .set(opts.data, null)
+            .set(opts.queryResult, action.payload ? state.get(opts.queryResult) : makeImmutable(queryResultDefaults))
+            .set(opts.store, null);
         } },
 
         // update store
         { [STORE]: (state, action) => {
           debug(`redux:${STORE}`, action);
+
           return state
-            .set(`${[opts.store]}`, makeImmutable(action.payload));
+            .set(opts.store, makeImmutable(action.payload));
         } }
       ),
       fromJS(
@@ -220,8 +316,15 @@ const reduxifyService = (app, route, name = route, options = {}) => {
           [opts.isSaving]: false,
           [opts.isFinished]: false,
           [opts.data]: null,
-          [opts.queryResult]: null,
-          [opts.store]: null
+          [opts.queryResult]: queryResultDefaults,
+          [opts.store]: null,
+
+          [opts.createPending]: false,
+          [opts.findPending]: false,
+          [opts.getPending]: false,
+          [opts.updatePending]: false,
+          [opts.patchPending]: false,
+          [opts.removePending]: false
         }
       )
     )
@@ -284,7 +387,7 @@ export default (app, routeNameMap, options) => {
  */
 
 export const getServicesStatus = (servicesState, serviceNames) => {
-  var status = {
+  const status = {
     message: '',
     className: '',
     serviceName: ''
@@ -394,7 +497,7 @@ export const makeImmutable = (obj) => {
   return fromJS(obj);
 };
 
-export const unmakeImmutable = (obj) => {
+export const makeMutable = (obj) => {
   if (Immutable.Iterable.isIterable(obj)) {
     return obj.toJS();
   }

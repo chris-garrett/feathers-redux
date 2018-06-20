@@ -16,8 +16,21 @@ const initServiceState = fromJS({
   isSaving: false,
   isFinished: false,
   data: null,
-  queryResult: null,
-  store: null
+  queryResult: {
+    total: 0,
+    limit: 0,
+    skip: 0,
+    data: []
+  },
+  store: null,
+
+  createPending: false,
+  findPending: false,
+  getPending: false,
+  updatePending: false,
+  patchPending: false,
+  removePending: false
+
 });
 
 const initialStatus = fromJS({ message: '', className: '', serviceName: '' });
@@ -81,7 +94,7 @@ describe('integration test (immutable.js)', () => {
 
       state = store.getState();
       assert.deepEqual(state.get('messages'),
-        initServiceState.set('isSaving', true)
+        initServiceState.set('isSaving', true).set('createPending', true)
       );
 
       assert.deepEqual(getServicesStatus(state, ['users', 'messages']), savingStatus);
@@ -89,7 +102,10 @@ describe('integration test (immutable.js)', () => {
       return promise.then(() => {
         state = store.getState();
         assert.deepEqual(state.get('messages'),
-          initServiceState.set('isFinished', true).set('data', fromJS({ id: 1, text: 'hello' }))
+          initServiceState
+            .set('isFinished', true)
+            .set('data', fromJS({ id: 1, text: 'hello' }))
+            .set('createPending', false)
         );
 
         assert.deepEqual(getServicesStatus(state, ['users', 'messages']), initialStatus);
@@ -101,7 +117,7 @@ describe('integration test (immutable.js)', () => {
 
       state = store.getState();
       assert.deepEqual(state.get('messages'),
-        initServiceState.set('isLoading', true)
+        initServiceState.set('isLoading', true).set('getPending', true)
       );
 
       return promise
@@ -127,7 +143,7 @@ describe('integration test (immutable.js)', () => {
 
       state = store.getState();
       assert.deepEqual(state.get('messages'),
-        initServiceState.set('isLoading', true)
+        initServiceState.set('isLoading', true).set('findPending', true)
       );
 
       return promise
@@ -137,7 +153,8 @@ describe('integration test (immutable.js)', () => {
             state.get('messages'),
             initServiceState
               .set('isFinished', true)
-              .set('queryResult', fromJS([{ id: 0, order: 0 }, { id: 1, order: 1 }]))
+              .set('queryResult', fromJS([{ id: 0, order: 0 }, { id: 1, order: 1 }])
+              .set('findPending', false))
           );
 
           assert.deepEqual(getServicesStatus(state, ['users', 'messages']), initialStatus);
@@ -162,12 +179,12 @@ describe('integration test (immutable.js)', () => {
         });
     });
 
-    it('immutable source', () => {
+    it('successful service call immutable source', () => {
       const promise = store.dispatch(reduxifiedServices.messages.create(fromJS({ text: 'hello' })));
 
       state = store.getState();
       assert.deepEqual(state.get('messages'),
-        initServiceState.set('isSaving', true)
+        initServiceState.set('isSaving', true).set('createPending', true)
       );
 
       assert.deepEqual(getServicesStatus(state, ['users', 'messages']), savingStatus);
@@ -175,7 +192,10 @@ describe('integration test (immutable.js)', () => {
       return promise.then(() => {
         state = store.getState();
         assert.deepEqual(state.get('messages'),
-          initServiceState.set('isFinished', true).set('data', fromJS({ id: 1, text: 'hello' }))
+          initServiceState
+            .set('isFinished', true)
+            .set('data', fromJS({ id: 1, text: 'hello' }))
+            .set('createPending', false)
         );
 
         assert.deepEqual(getServicesStatus(state, ['users', 'messages']), initialStatus);
