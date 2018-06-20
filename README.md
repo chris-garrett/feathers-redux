@@ -4,7 +4,7 @@
 [![Code Climate](https://codeclimate.com/github/feathersjs/feathers-redux/badges/gpa.svg)](https://codeclimate.com/github/chris-garrett/feathers-redux-immutablejs)
 [![Test Coverage](https://codeclimate.com/github/feathersjs/feathers-redux/badges/coverage.svg)](https://codeclimate.com/github/feathersjs/feathers-redux/coverage)
 [![Dependency Status](https://img.shields.io/david/feathersjs/feathers-redux.svg?style=flat-square)](https://david-dm.org/feathersjs/feathers-redux)
-[![Download Status](https://img.shields.io/npm/dm/feathers-redux.svg?style=flat-square)](https://www.npmjs.com/package/feathers-redux)
+[![Download Status](https://img.shields.io/npm/dm/feathers-redux.svg?style=flat-square)](https://www.npmjs.com/package/feathers-redux-immutablejs)
 
 > Integrate Feathers services with your Redux store
 
@@ -81,7 +81,7 @@ The default is
   REJECTED: 'REJECTED',
 }
 ```
-    
+
 `reduxifyServices` returns an object of the form
 ```javascript
 {
@@ -215,12 +215,12 @@ state = {
 
 ## Autobind Action Creators
 
-Method to bind a given dispatch function with the passed services. 
+Method to bind a given dispatch function with the passed services.
 This helps with not having to pass down `store.dispatch` as a prop everywhere the service is being used. Read More: http://redux.js.org/docs/api/bindActionCreators.html
 ```js
 import reduxifyServices, { bindWithDispatch } from 'feathers-redux';
 
-// create a services object as described above 
+// create a services object as described above
 const rawServices = reduxifyServices(...);
 
 // create a store with rootReducer combining reducers from rawServices
@@ -230,7 +230,7 @@ const store = createStore(...)
 const services = bindWithDispatch(store.dispatch, rawServices)
 ```
 ```js
-// before 
+// before
 store.dispatch(services.messages.get('557XxUL8PalGMgOo'));
 store.dispatch(services.messages.find());
 store.dispatch(services.messages.create({ text: 'Hello!' }));
@@ -288,7 +288,7 @@ The following properties exist in all of the feather services:
 The service pending state will be updated according to the dispatched action.
 ```javascript
     dispatch(services.messages.create({ text: 'Hello!' })) `will update the state to:` createPending: true
-    dispatch(services.messages.find()) `will update the state to:` findPending: true 
+    dispatch(services.messages.find()) `will update the state to:` findPending: true
     dispatch(services.messages.get('557XxUL8PalGMgOo')) `will update the state to:` getPending: true
     dispatch(services.messages.update(id, data) `will update the state to:` updatePending: true
     dispatch(services.messages.patch(id, data) `will update the state to:` patchPending: true
